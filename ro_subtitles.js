@@ -14,7 +14,6 @@
 
     function adaugaSubtitrare(film){
         let titlu = film.original_title || film.name || film.title;
-        let an = (film.release_date || '').slice(0, 4);
         let url = `https://api.opensubtitles.com/api/v1/subtitles?query=${encodeURIComponent(titlu)}&languages=ro`;
 
         fetch(url, {
@@ -26,9 +25,11 @@
         .then(r => r.json())
         .then(data => {
             if(data && data.data && data.data.length){
-                let subtitleId = data.data[0].attributes.files[0].file_id;
+                let files = data.data[0].attributes.files;
+                if (!files || !files.length) return;
 
-                // Cere linkul direct pentru descărcare
+                let subtitleId = files[0].file_id;
+
                 fetch(`https://api.opensubtitles.com/api/v1/download`, {
                     method: 'POST',
                     headers: {
