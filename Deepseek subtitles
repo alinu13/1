@@ -1,0 +1,98 @@
+/**
+ * Script pentru încărcare automată de subtitrări în română din OpenSubtitles
+ * Pentru player-ul Lampa sau alte playere video HTML5
+ */
+
+async function loadRomanianSubtitles(videoFileName, videoDuration, videoHash = null) {
+    // 1. Autentificare pe OpenSubtitles API
+    const apiKey = 'CYoqs2KyRHhAAQnqLDIj3sc9gS3R37Vg'; // Înlocuiește cu un API key valid de la OpenSubtitles
+    const apiUrl = 'https://api.opensubtitles.com/api/v1';
+
+    const authResponse = await fetch(`${apiUrl}/login`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Api-Key': apiKey
+        },
+        body: JSON.stringify({
+            username: 'GUEST', // Poți folosi cont de guest sau un cont înregistrat
+            password: ''
+        })
+    });
+
+    if (!authResponse.ok) {
+        console.error('Eroare la autentificare OpenSubtitles');
+        return;
+    }
+
+    const authData = await authResponse.json();
+    const token = authData.token;
+
+    // 2. Căutare subtitrări
+    const searchParams = {
+        languages: 'ro', // Subtitrări în română
+        query: videoFileName,
+        moviehash: videoHash,
+        moviebytesize: videoDuration.toString()
+    };
+
+    const searchResponse = await fetch(`${apiUrl}/subtitles`, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Api-Key': apiKey
+        },
+        params: searchParams
+    });
+
+    if (!searchResponse.ok) {
+        console.error('Eroare la căutare subtitrări');
+        return;
+    }
+
+    const searchData = await searchResponse.json();
+    if (searchData.total_count === 0) {
+        console.log('Nu s-au găsit subtitrări în română.');
+        return;
+    }
+
+    // 3. Descărcare subtitrări (primul rezultat)
+    const subtitleId = searchData.data[0].attributes.files[0].file_id;
+    const downloadResponse = await fetch(`${apiUrl}/download`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Api-Key': apiKey
+        },
+        body: JSON.stringify({
+            file_id: subtitleId
+        })
+    });
+
+    if (!downloadResponse.ok) {
+        console.error('Eroare la descărcare subtitrări');
+        return;
+    }
+
+    const downloadData = await downloadResponse.json();
+    const subtitleUrl = downloadData.link;
+
+    // 4. Încărcare subtitrări în player (exemplu pentru HTML5 Video)
+    const videoPlayer = document.querySelector('video');
+    if (videoPlayer) {
+        const track = document.createElement('track');
+        track.kind = 'subtitles';
+        track.label = 'Română';
+        track.srclang = 'ro';
+        track.src = subtitleUrl;
+        videoPlayer.appendChild(track);
+        track.mode = 'showing'; // Afișează subtitrările
+        console.log('Subtitrări încărcate cu succes!');
+    } else {
+        console.error('Player video negăsit în pagină.');
+    }
+}
+
+// Exemplu de utilizare:
+// loadRomanianSubtitles("The.Matrix.1999.mp4", 8160, "abc123hash");
